@@ -1,12 +1,11 @@
 package com.example.currencyapp;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ListView;
-import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -15,14 +14,18 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 
-import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
     private ListView mCurrencies;
     private RequestQueue mQueue;
+    private android.widget.ArrayAdapter<String> adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,7 +34,8 @@ public class MainActivity extends AppCompatActivity {
 
         mCurrencies = findViewById(R.id.currencies);
         Button button = findViewById(R.id.button);
-
+        adapter = new CoinsAdapter(this);
+        mCurrencies.setAdapter(adapter);
         mQueue = Volley.newRequestQueue(this);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -42,35 +46,30 @@ public class MainActivity extends AppCompatActivity {
         });
 
     }
+
     private void jsonParse() {
         String url = "https://api.exchangeratesapi.io/latest";
 
         JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET, url, null,
-                new Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject response) {
-                        try {
-                            JSONArray jsonArray = response.getJSONArray("rates");
+                response -> {
+                    java.util.List<String> dataList = parser(response);
+                    adapter.clear();
+                    adapter.addAll(dataList);
+                    adapter.notifyDataSetChanged();
 
-                            for (int i = 0; i < jsonArray.length(); i++) {
-                               JSONObject rate = jsonArray.getJSONObject(i);
-
-                               String rates = rate.getString("rates");
-
-                               mCurrencies.add(rates);
-                            }
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-
-                    }
-                }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                error.printStackTrace();
-            }
-        });
+                }, error -> error.printStackTrace());
         mQueue.add(request);
+    }
 
+    List<String> parser(JSONObject response) {
+        HashMap<String, String> currencies = new HashMap<>();
+        JSONObject exchangeRates = response.optJSONObject("rates");
+        Iterator<String> keys = exchangeRates.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            String value = exchangeRates.optString(key);
+            currencies.put(key, value);
+        }
+        return new ArrayList<>(currencies.values());
     }
 }
